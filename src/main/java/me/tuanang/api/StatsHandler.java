@@ -1,89 +1,100 @@
 package me.tuanang.api;
 
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
-import org.bukkit.*;
-import org.bukkit.entity.Player;
+import com.sun.net.httpserver.HttpServer;
+import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.Statistic;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.json.JSONObject;
 
-import java.io.File;
-import java.io.OutputStream;
-import java.nio.file.Files;
-import java.util.UUID;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 
-public class StatsHandler implements HttpHandler {
+public class StatsHandler {
 
-    @Override
-    public void handle(HttpExchange ex) {
+    private final JavaPlugin plugin;
+    private final int port;
+    private final String key;
+    private final String bind;
+
+    public StatsHandler(JavaPlugin plugin, int port, String key, String bind) {
+        this.plugin = plugin;
+        this.port = port;
+        this.key = key;
+        this.bind = bind;
+    }
+
+    public void start() {
         try {
-            String path = ex.getRequestURI().getPath();
-            String[] split = path.split("/");
-            if (split.length < 3) {
-                send(ex, "{\"error\":\"missing player\"}");
-                return;
-            }
+            HttpServer server = HttpServer.create(
+                    new InetSocketAddress(bind, port), 0
+            );
 
-            String name = split[2];
-            OfflinePlayer off = Bukkit.getOfflinePlayer(name);
-            if (!off.hasPlayedBefore() && !off.isOnline()) {
-                send(ex, "{\"error\":\"player not found\"}");
-                return;
-            }
+            server.createContext("/stats", exchange -> {
+                String query = exchange.getRequestURI().getQuery();
+                if (query == null || !query.contains("key=")) {
+                    send(exchange, "{\"error\":\"missing key\"}");
+                    return;
+                }
 
-            UUID uuid = off.getUniqueId();
-            boolean online = off.isOnline();
+                if (!query.contains("key=" + key)) {
+                    send(exchange, "{\"error\":\"invalid key\"}");
+                    return;
+                }
 
-            JSONObject json = new JSONObject();
-            json.put("player", name);
-            json.put("uuid", uuid.toString());
-            json.put("online", online);
+                String[] path = exchange.getRequestURI().getPath().split("/");
+                if (path.length < 3) {
+                    send(exchange, "{\"error\":\"missing player\"}");
+                    return;
+                }
 
-            if (online) {
-                Player p = off.getPlayer();
-                json.put("health", p.getHealth());
-                json.put("food", p.getFoodLevel());
-            } else {
-                json.put("last_seen", off.getLastPlayed() / 1000);
-            }
+                String name = path[2];
 
-            // ====== READ STATS FILE (online + offline đều dùng) ======
-            File f = new File(Bukkit.getWorlds().get(0).getWorldFolder(),
-                    "stats/" + uuid + ".json");
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    OfflinePlayer off = Bukkit.getOfflinePlayer(name);
+                    JSONObject json = new JSONObject();
 
-            if (f.exists()) {
-                String content = Files.readString(f.toPath());
-                JSONObject stats = new JSONObject(content).getJSONObject("stats");
+                    json.put("player", name);
+                    json.put("uuid", off.getUniqueId().toString());
 
-                json.put("playtime",
-                        stats.getJSONObject("minecraft:custom")
-                                .optInt("minecraft:play_time", 0));
+                    Player online = off.getPlayer();
+                    boolean isOnline = online != null;
 
-                json.put("deaths",
-                        stats.getJSONObject("minecraft:custom")
-                                .optInt("minecraft:deaths", 0));
+                    json.put("online", isOnline);
 
-                json.put("blocks_mined",
-                        stats.getJSONObject("minecraft:mined").length());
+                    if (isOnline) {
+                        json.put("health", online.getHealth());
+                        json.put("food", online.getFoodLevel());
+                        json.put("world", online.getWorld().getName());
+                    } else {
+                        json.put("health", null);
+                        json.put("food", null);
+                        json.put("world", null);
+                    }
 
-                json.put("blocks_placed",
-                        stats.getJSONObject("minecraft:used").length());
-            }
+                    json.put("playtime", off.getStatistic(Statistic.PLAY_ONE_MINUTE) / 20);
+                    json.put("deaths", off.getStatistic(Statistic.DEATHS));
+                    json.put("kills", off.getStatistic(Statistic.PLAYER_KILLS));
 
-            send(ex, json.toString(2));
+                    send(exchange, json.toString(2));
+                });
+            });
+
+            server.start();
+            plugin.getLogger().info("API OK http://IP:" + port + "/stats/<player>?key=xxx");
 
         } catch (Exception e) {
-            try {
-                send(ex, "{\"error\":\"" + e.getMessage() + "\"}");
-            } catch (Exception ignored) {}
+            e.printStackTrace();
         }
     }
 
-    private void send(HttpExchange ex, String body) throws Exception {
-        ex.getResponseHeaders().add("Content-Type", "application/json; charset=utf-8");
-        ex.sendResponseHeaders(200, body.getBytes().length);
-        try (OutputStream os = ex.getResponseBody()) {
-            os.write(body.getBytes());
-        }
+    private void send(com.sun.net.httpserver.HttpExchange ex, String body) {
+        try {
+            byte[] data = body.getBytes(StandardCharsets.UTF_8);
+            ex.sendResponseHeaders(200, data.length);
+            ex.getResponseBody().write(data);
+            ex.close();
+        } catch (Exception ignored) {}
     }
-                                    }
+}
