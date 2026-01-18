@@ -5,7 +5,7 @@ import com.google.gson.Gson;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.plugin.java.JavaPlugin;
-import static spark.Spark.*;;
+import static spark.Spark.*;
 
 import java.util.HashMap;
 import java.util.Map;
