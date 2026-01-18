@@ -3,20 +3,24 @@ package me.tuanang.api;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PlayerCache {
-    private static final ConcurrentHashMap<String, PlayerData> cache = new ConcurrentHashMap<>();
 
-    public static void init() {}
-
-    public static PlayerData get(String name) {
-        return cache.computeIfAbsent(name.toLowerCase(), k -> {
-            PlayerData d = new PlayerData();
-            d.name = name;
-            d.lastSeen = System.currentTimeMillis();
-            return d;
-        });
+    public static class Data {
+        public long breakBlock, placeBlock, mobKill, death, playtime;
+        public long lastSeen;
     }
 
-    public static ConcurrentHashMap<String, PlayerData> all() {
-        return cache;
+    private final ConcurrentHashMap<String, Data> cache = new ConcurrentHashMap<>();
+
+    public Data get(String name) {
+        return cache.computeIfAbsent(name.toLowerCase(), k -> new Data());
+    }
+
+    public boolean exists(String name) {
+        return cache.containsKey(name.toLowerCase());
+    }
+
+    public void saveAll() {
+        // giữ trong RAM (hosting reset = reset data)
+        // nếu muốn: ghi file json ở đây
     }
 }
