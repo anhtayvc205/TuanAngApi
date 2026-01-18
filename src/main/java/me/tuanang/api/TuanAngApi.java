@@ -5,32 +5,34 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.net.InetSocketAddress;
-import java.util.concurrent.Executors;
 
 public class TuanAngApi extends JavaPlugin {
 
-    public static TuanAngApi instance;
+    public PlayerCache cache;
+    public StatsHandler api;
 
     @Override
     public void onEnable() {
-        instance = this;
+        cache = new PlayerCache();
 
-        Bukkit.getPluginManager().registerEvents(new PlayerListener(), this);
+        Utils.load(this);
 
-        // auto +10s playtime
-        Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
-            PlayerCache.cache.values().forEach(PlayerCache::tick);
-        }, 200L, 200L); // 10s
+        Bukkit.getPluginManager().registerEvents(new PlayerListener(this), this);
+        new AutoSaveTask(this).runTaskTimerAsynchronously(this, 200L, 200L);
 
-        // HTTP API
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress(25673), 0);
-            server.createContext("/stats", new StatsHandler());
-            server.setExecutor(Executors.newCachedThreadPool());
+            api = new StatsHandler(this);
+            server.createContext("/stats", api);
             server.start();
             getLogger().info("API started :25673");
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    public void onDisable() {
+        Utils.save(this);
     }
 }
