@@ -3,83 +3,80 @@ package me.tuanang.api;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.Statistic;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class StatsHandler implements HttpHandler {
 
-    private final JavaPlugin plugin;
+    private final TuanAngApi plugin;
+    private final String key;
 
-    public StatsHandler(JavaPlugin plugin) {
+    public StatsHandler(TuanAngApi plugin, String key) {
         this.plugin = plugin;
+        this.key = key;
     }
 
     @Override
     public void handle(HttpExchange ex) throws IOException {
-
         String query = ex.getRequestURI().getQuery();
-        String path = ex.getRequestURI().getPath();
-
-        String key = plugin.getConfig().getString("key");
-
         if (query == null || !query.contains("key=" + key)) {
             send(ex, 403, "{\"error\":\"invalid key\"}");
             return;
         }
 
-        String name = path.replace("/stats/", "");
-        Player p = Bukkit.getPlayerExact(name);
-
-        if (p == null) {
-            send(ex, 404, "{\"error\":\"player offline\"}");
+        String[] parts = ex.getRequestURI().getPath().split("/");
+        if (parts.length < 3) {
+            send(ex, 400, "{\"error\":\"missing player\"}");
             return;
         }
 
-        long ticks = p.getStatistic(Statistic.PLAY_ONE_MINUTE);
-        long seconds = ticks / 20;
+        String name = parts[2];
+        AtomicReference<String> json = new AtomicReference<>();
 
-        int placed = 0;
-        int mined = 0;
+        try {
+            Bukkit.getScheduler().callSyncMethod(plugin, () -> {
+                Player p = Bukkit.getPlayerExact(name);
 
-        for (Material m : Material.values()) {
-            if (m.isBlock()) {
-                placed += p.getStatistic(Statistic.USE_ITEM, m);
-                mined += p.getStatistic(Statistic.MINE_BLOCK, m);
-            }
+                if (p == null) {
+                    json.set("{\"error\":\"player offline\"}");
+                } else {
+                    json.set("""
+                    {
+                      "name": "%s",
+                      "uuid": "%s",
+                      "blocks_broken": %d,
+                      "blocks_placed": %d,
+                      "mob_kills": %d,
+                      "deaths": %d,
+                      "playtime": %d
+                    }
+                    """.formatted(
+                            p.getName(),
+                            p.getUniqueId(),
+                            p.getStatistic(Statistic.MINE_BLOCK),
+                            p.getStatistic(Statistic.USE_ITEM),
+                            p.getStatistic(Statistic.MOB_KILLS),
+                            p.getStatistic(Statistic.DEATHS),
+                            p.getStatistic(Statistic.PLAY_ONE_MINUTE) / 20
+                    ));
+                }
+                return null;
+            }).get();
+
+        } catch (Exception e) {
+            json.set("{\"error\":\"internal\"}");
         }
 
-        int kills = p.getStatistic(Statistic.MOB_KILLS);
-        int deaths = p.getStatistic(Statistic.DEATHS);
-
-        String json =
-        "{"
-        + "\"player\":\"" + p.getName() + "\","
-        + "\"uuid\":\"" + p.getUniqueId() + "\","
-        + "\"online\":true,"
-        + "\"playtime\":{"
-            + "\"ticks\":" + ticks + ","
-            + "\"seconds\":" + seconds + ","
-            + "\"time\":\"" + Util.formatTime(seconds) + "\""
-        + "},"
-        + "\"stats\":{"
-            + "\"blocks_mined\":" + mined + ","
-            + "\"blocks_placed\":" + placed + ","
-            + "\"mob_kills\":" + kills + ","
-            + "\"deaths\":" + deaths
-        + "}"
-        + "}";
-
-        send(ex, 200, json);
+        send(ex, 200, json.get());
     }
 
-    private void send(HttpExchange ex, int code, String json) throws IOException {
-        ex.getResponseHeaders().set("Content-Type", "application/json");
-        byte[] data = json.getBytes(StandardCharsets.UTF_8);
+    private void send(HttpExchange ex, int code, String body) throws IOException {
+        byte[] data = body.getBytes(StandardCharsets.UTF_8);
+        ex.getResponseHeaders().add("Content-Type", "application/json");
         ex.sendResponseHeaders(code, data.length);
         ex.getResponseBody().write(data);
         ex.close();
