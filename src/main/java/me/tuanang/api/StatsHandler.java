@@ -7,6 +7,8 @@ import org.bukkit.OfflinePlayer;
 
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 
 public class StatsHandler implements HttpHandler {
 
@@ -19,39 +21,45 @@ public class StatsHandler implements HttpHandler {
     @Override
     public void handle(HttpExchange ex) {
         try {
-            String[] p = ex.getRequestURI().getPath().split("/");
-            if (p.length < 3) {
-                send(ex, "{\"error\":\"missing_player\"}");
-                return;
+            String path = ex.getRequestURI().getPath();
+            String name = path.replace("/stats/", "");
+
+            OfflinePlayer p = Bukkit.getOfflinePlayer(name);
+
+            PreparedStatement ps = plugin.db.getConnection().prepareStatement(
+                    "SELECT * FROM player_stats WHERE uuid=?"
+            );
+            ps.setString(1, p.getUniqueId().toString());
+
+            ResultSet rs = ps.executeQuery();
+
+            String json;
+
+            if (rs.next()) {
+                json = "{"
+                        + "\"player\":\"" + name + "\","
+                        + "\"online\":" + p.isOnline() + ","
+                        + "\"playtime\":" + rs.getLong("playtime") + ","
+                        + "\"blocks_place\":" + rs.getInt("blocks_place") + ","
+                        + "\"blocks_break\":" + rs.getInt("blocks_break") + ","
+                        + "\"last_seen\":" + rs.getLong("last_seen")
+                        + "}";
+            } else {
+                json = "{\"error\":\"not_found\"}";
             }
 
-            OfflinePlayer pl = Bukkit.getOfflinePlayer(p[2]);
-            PlayerData d = plugin.db.get(pl.getUniqueId());
-
-            boolean online = pl.isOnline();
-
-            String json = "{\n" +
-                    " \"player\":\"" + p[2] + "\",\n" +
-                    " \"status\":\"" + (online ? "online" : "offline") + "\",\n" +
-                    " \"playtime\":" + d.playtime + ",\n" +
-                    " \"blocks_place\":" + d.place + ",\n" +
-                    " \"blocks_break\":" + d.breaks + ",\n" +
-                    " \"lastSeen\":" + d.lastSeen + "\n" +
-                    "}";
-
-            send(ex, json);
+            ex.sendResponseHeaders(200, json.getBytes().length);
+            OutputStream os = ex.getResponseBody();
+            os.write(json.getBytes(StandardCharsets.UTF_8));
+            os.close();
 
         } catch (Exception e) {
-            try { send(ex, "{\"error\":\"internal\"}"); } catch (Exception ignored) {}
+            try {
+                String err = "{\"error\":\"internal\"}";
+                ex.sendResponseHeaders(500, err.length());
+                ex.getResponseBody().write(err.getBytes());
+                ex.getResponseBody().close();
+            } catch (Exception ignored) {}
         }
-    }
-
-    private void send(HttpExchange ex, String body) throws Exception {
-        byte[] data = body.getBytes(StandardCharsets.UTF_8);
-        ex.getResponseHeaders().add("Content-Type", "application/json");
-        ex.sendResponseHeaders(200, data.length);
-        OutputStream os = ex.getResponseBody();
-        os.write(data);
-        os.close();
     }
 }
