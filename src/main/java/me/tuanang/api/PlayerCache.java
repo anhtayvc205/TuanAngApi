@@ -1,15 +1,22 @@
+package me.tuanang.api;
+
+import java.util.concurrent.ConcurrentHashMap;
+
 public class PlayerCache {
-    private static final Map<UUID, PlayerData> cache = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<String, PlayerData> cache = new ConcurrentHashMap<>();
 
-    public static PlayerData get(UUID uuid) {
-        return cache.get(uuid);
+    public static void init() {}
+
+    public static PlayerData get(String name) {
+        return cache.computeIfAbsent(name.toLowerCase(), k -> {
+            PlayerData d = new PlayerData();
+            d.name = name;
+            d.lastSeen = System.currentTimeMillis();
+            return d;
+        });
     }
 
-    public static void put(UUID uuid, PlayerData data) {
-        cache.put(uuid, data);
-    }
-
-    public static Collection<PlayerData> values() {
-        return cache.values();
+    public static ConcurrentHashMap<String, PlayerData> all() {
+        return cache;
     }
 }
