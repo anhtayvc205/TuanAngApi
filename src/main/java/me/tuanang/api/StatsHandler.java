@@ -4,75 +4,54 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
-import org.bukkit.Statistic;
-import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
-import org.json.JSONObject;
 
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.UUID;
 
 public class StatsHandler implements HttpHandler {
 
-    private final JavaPlugin plugin;
+    private final TuanAngApi plugin;
 
-    public StatsHandler(JavaPlugin plugin) {
+    public StatsHandler(TuanAngApi plugin) {
         this.plugin = plugin;
     }
 
     @Override
-    public void handle(HttpExchange exchange) {
+    public void handle(HttpExchange ex) {
         try {
-            String path = exchange.getRequestURI().getPath();
-            String[] args = path.split("/");
-
-            if (args.length < 3) {
-                send(exchange, "{\"error\":\"missing player\"}");
+            String[] p = ex.getRequestURI().getPath().split("/");
+            if (p.length < 3) {
+                send(ex, "{\"error\":\"missing_player\"}");
                 return;
             }
 
-            String name = args[2];
-            OfflinePlayer off = Bukkit.getOfflinePlayer(name);
-            UUID uuid = off.getUniqueId();
+            OfflinePlayer pl = Bukkit.getOfflinePlayer(p[2]);
+            PlayerData d = plugin.db.get(pl.getUniqueId());
 
-            boolean online = off.isOnline();
-            Player p = online ? off.getPlayer() : null;
+            boolean online = pl.isOnline();
 
-            JSONObject json = new JSONObject();
-            json.put("player", name);
-            json.put("uuid", uuid.toString());
-            json.put("status", online ? "online" : "offline");
+            String json = "{\n" +
+                    " \"player\":\"" + p[2] + "\",\n" +
+                    " \"status\":\"" + (online ? "online" : "offline") + "\",\n" +
+                    " \"playtime\":" + d.playtime + ",\n" +
+                    " \"blocks_place\":" + d.place + ",\n" +
+                    " \"blocks_break\":" + d.breaks + ",\n" +
+                    " \"lastSeen\":" + d.lastSeen + "\n" +
+                    "}";
 
-            json.put("playtime", off.getStatistic(Statistic.PLAY_ONE_MINUTE) / 20);
-            json.put("kills", off.getStatistic(Statistic.PLAYER_KILLS));
-            json.put("deaths", off.getStatistic(Statistic.DEATHS));
-
-            json.put("blocksPlaced", off.getStatistic(Statistic.USE_ITEM));
-            json.put("blocksBroken", off.getStatistic(Statistic.MINE_BLOCK));
-
-            long lastSeen = online
-                    ? System.currentTimeMillis()
-                    : off.getLastSeen();
-
-            json.put("lastSeen", lastSeen);
-
-            send(exchange, json.toString());
+            send(ex, json);
 
         } catch (Exception e) {
-            e.printStackTrace();
-            try {
-                send(exchange, "{\"error\":\"internal\"}");
-            } catch (Exception ignored) {}
+            try { send(ex, "{\"error\":\"internal\"}"); } catch (Exception ignored) {}
         }
     }
 
-    private void send(HttpExchange ex, String data) throws Exception {
-        byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
-        ex.getResponseHeaders().add("Content-Type", "application/json; charset=utf-8");
-        ex.sendResponseHeaders(200, bytes.length);
+    private void send(HttpExchange ex, String body) throws Exception {
+        byte[] data = body.getBytes(StandardCharsets.UTF_8);
+        ex.getResponseHeaders().add("Content-Type", "application/json");
+        ex.sendResponseHeaders(200, data.length);
         OutputStream os = ex.getResponseBody();
-        os.write(bytes);
+        os.write(data);
         os.close();
     }
 }
