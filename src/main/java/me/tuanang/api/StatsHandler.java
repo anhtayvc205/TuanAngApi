@@ -1,58 +1,31 @@
 package me.tuanang.api;
 
-import com.google.gson.JsonObject;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import org.bukkit.Bukkit;
+import org.json.JSONObject;
 
-import java.io.OutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 public class StatsHandler implements HttpHandler {
 
     @Override
-    public void handle(HttpExchange ex) {
-        try {
-            String[] split = ex.getRequestURI().getPath().split("/");
-            if (split.length < 3) {
-                send(ex, "{\"error\":\"no player\"}");
-                return;
-            }
+    public void handle(HttpExchange ex) throws IOException {
+        String name = ex.getRequestURI().getPath().replace("/stats/", "");
+        PlayerData d = PlayerCache.get(name);
 
-            String name = split[2].toLowerCase();
+        JSONObject j = new JSONObject();
+        j.put("name", d.name);
+        j.put("break", d.blockBreak);
+        j.put("place", d.blockPlace);
+        j.put("kill", d.kill);
+        j.put("death", d.death);
+        j.put("playtime", Utils.formatTime(d.playtime));
+        j.put("lastSeen", d.online ? "Đang online" : Utils.lastSeen(d.lastSeen));
 
-            if (!TuanAngApi.instance.cache.exists(name)) {
-                send(ex, "{\"error\":\"Người chơi chưa từng vào server\"}");
-                return;
-            }
-
-            var d = TuanAngApi.instance.cache.get(name);
-
-            boolean online = Bukkit.getPlayerExact(name) != null;
-            long now = System.currentTimeMillis();
-            long diff = (now - d.lastSeen) / 1000;
-
-            JsonObject j = new JsonObject();
-            j.addProperty("name", name);
-            j.addProperty("break", d.breakBlock);
-            j.addProperty("place", d.placeBlock);
-            j.addProperty("mobkill", d.mobKill);
-            j.addProperty("death", d.death);
-            j.addProperty("playtime", d.playtime);
-            j.addProperty("lastSeen",
-                    online ? "đang online" : diff + " giây trước");
-
-            send(ex, j.toString());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void send(HttpExchange ex, String body) throws Exception {
-        byte[] data = body.getBytes(StandardCharsets.UTF_8);
-        ex.sendResponseHeaders(200, data.length);
-        OutputStream os = ex.getResponseBody();
-        os.write(data);
-        os.close();
+        byte[] out = j.toString().getBytes(StandardCharsets.UTF_8);
+        ex.sendResponseHeaders(200, out.length);
+        ex.getResponseBody().write(out);
+        ex.close();
     }
 }
