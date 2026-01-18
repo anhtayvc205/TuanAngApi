@@ -1,10 +1,12 @@
 package me.tuanang.api;
 
 public class PlayerData {
-    public long playtime = 0;
-    public int blockBreak = 0;
-    public int blockPlace = 0;
-    public int kill = 0;
-    public int death = 0;
-    public long lastSeen = 0;
+    public String name;
+    public int breakBlock;
+    public int placeBlock;
+    public int kill;
+    public int death;
+    public long playtime; // seconds
+    public long lastSeen;
+    public boolean online;
 }
