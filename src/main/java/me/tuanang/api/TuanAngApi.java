@@ -1,44 +1,40 @@
-package me.tuanang.api;
-
-import com.sun.net.httpserver.HttpServer;
-import org.bukkit.Bukkit;
-import org.bukkit.plugin.java.JavaPlugin;
-
-import java.net.InetSocketAddress;
-
 public class TuanAngApi extends JavaPlugin {
 
-    public static PlayerCache CACHE;
+    public static TuanAngApi instance;
+    public Database db;
+    public PlayerCache cache;
 
     @Override
     public void onEnable() {
-        CACHE = new PlayerCache(this);
-        Bukkit.getPluginManager().registerEvents(new PlayerListener(this), this);
+        instance = this;
 
-        // autosave 30s
-        Bukkit.getScheduler().runTaskTimerAsynchronously(this,
-                () -> CACHE.saveAll(), 600L, 600L);
+        db = new Database(this);
+        cache = new PlayerCache(db);
 
-        // playtime realtime 10s
-        Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
-            Bukkit.getOnlinePlayers().forEach(p ->
-                    CACHE.addPlaytime(p.getUniqueId(), 10)
-            );
-        }, 200L, 200L);
+        getServer().getPluginManager().registerEvents(
+                new PlayerListener(this), this
+        );
 
+        startHttp();
+        startAutoSave();
+    }
+
+    void startHttp() {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress(25673), 0);
             server.createContext("/stats", new StatsHandler(this));
-            server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool());
+            server.setExecutor(Executors.newCachedThreadPool());
             server.start();
-            getLogger().info("API started :25673");
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    @Override
-    public void onDisable() {
-        CACHE.saveAll();
+    void startAutoSave() {
+        Bukkit.getScheduler().runTaskTimerAsynchronously(
+                this,
+                () -> cache.flushAll(),
+                200L, 200L // 10s
+        );
     }
 }
