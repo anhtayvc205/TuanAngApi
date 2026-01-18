@@ -3,6 +3,7 @@ package me.tuanang.api;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.Statistic;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -20,6 +21,7 @@ public class StatsHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange ex) throws IOException {
+
         String query = ex.getRequestURI().getQuery();
         String path = ex.getRequestURI().getPath();
 
@@ -41,8 +43,16 @@ public class StatsHandler implements HttpHandler {
         long ticks = p.getStatistic(Statistic.PLAY_ONE_MINUTE);
         long seconds = ticks / 20;
 
-        int mined = p.getStatistic(Statistic.MINE_BLOCK);
-        int placed = p.getStatistic(Statistic.PLACE_BLOCK);
+        int placed = 0;
+        int mined = 0;
+
+        for (Material m : Material.values()) {
+            if (m.isBlock()) {
+                placed += p.getStatistic(Statistic.USE_ITEM, m);
+                mined += p.getStatistic(Statistic.MINE_BLOCK, m);
+            }
+        }
+
         int kills = p.getStatistic(Statistic.MOB_KILLS);
         int deaths = p.getStatistic(Statistic.DEATHS);
 
