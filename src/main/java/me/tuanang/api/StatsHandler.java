@@ -2,70 +2,88 @@ package me.tuanang.api;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
-import org.bukkit.Bukkit;
-import org.bukkit.Statistic;
+import org.bukkit.*;
 import org.bukkit.entity.Player;
+import org.bukkit.OfflinePlayer;
+import org.json.JSONObject;
 
+import java.io.File;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.util.UUID;
 
 public class StatsHandler implements HttpHandler {
 
-    private final TuanAngApi plugin;
-    private final String apiKey;
-
-    public StatsHandler(TuanAngApi plugin, String apiKey) {
-        this.plugin = plugin;
-        this.apiKey = apiKey;
-    }
-
     @Override
-    public void handle(HttpExchange exchange) {
+    public void handle(HttpExchange ex) {
         try {
-            String query = exchange.getRequestURI().getQuery();
-            if (query == null || !query.contains("key=" + apiKey)) {
-                send(exchange, 403, "{\"error\":\"invalid key\"}");
+            String path = ex.getRequestURI().getPath();
+            String[] split = path.split("/");
+            if (split.length < 3) {
+                send(ex, "{\"error\":\"missing player\"}");
                 return;
             }
 
-            String[] path = exchange.getRequestURI().getPath().split("/");
-            if (path.length < 3) {
-                send(exchange, 400, "{\"error\":\"missing player\"}");
+            String name = split[2];
+            OfflinePlayer off = Bukkit.getOfflinePlayer(name);
+            if (!off.hasPlayedBefore() && !off.isOnline()) {
+                send(ex, "{\"error\":\"player not found\"}");
                 return;
             }
 
-            String name = path[2];
-            Player p = Bukkit.getPlayerExact(name);
+            UUID uuid = off.getUniqueId();
+            boolean online = off.isOnline();
 
-            if (p == null) {
-                send(exchange, 200, "{\"error\":\"player offline\"}");
-                return;
+            JSONObject json = new JSONObject();
+            json.put("player", name);
+            json.put("uuid", uuid.toString());
+            json.put("online", online);
+
+            if (online) {
+                Player p = off.getPlayer();
+                json.put("health", p.getHealth());
+                json.put("food", p.getFoodLevel());
+            } else {
+                json.put("last_seen", off.getLastPlayed() / 1000);
             }
 
-            String json =
-                    "{\n" +
-                    "  \"player\": \"" + p.getName() + "\",\n" +
-                    "  \"uuid\": \"" + p.getUniqueId() + "\",\n" +
-                    "  \"health\": " + p.getHealth() + ",\n" +
-                    "  \"food\": " + p.getFoodLevel() + ",\n" +
-                    "  \"playtime\": " + (p.getStatistic(Statistic.PLAY_ONE_MINUTE) / 20) + ",\n" +
-                    "  \"deaths\": " + p.getStatistic(Statistic.DEATHS) + ",\n" +
-                    "  \"kills\": " + p.getStatistic(Statistic.MOB_KILLS) + "\n" +
-                    "}";
+            // ====== READ STATS FILE (online + offline đều dùng) ======
+            File f = new File(Bukkit.getWorlds().get(0).getWorldFolder(),
+                    "stats/" + uuid + ".json");
 
-            send(exchange, 200, json);
+            if (f.exists()) {
+                String content = Files.readString(f.toPath());
+                JSONObject stats = new JSONObject(content).getJSONObject("stats");
+
+                json.put("playtime",
+                        stats.getJSONObject("minecraft:custom")
+                                .optInt("minecraft:play_time", 0));
+
+                json.put("deaths",
+                        stats.getJSONObject("minecraft:custom")
+                                .optInt("minecraft:deaths", 0));
+
+                json.put("blocks_mined",
+                        stats.getJSONObject("minecraft:mined").length());
+
+                json.put("blocks_placed",
+                        stats.getJSONObject("minecraft:used").length());
+            }
+
+            send(ex, json.toString(2));
 
         } catch (Exception e) {
-            e.printStackTrace();
+            try {
+                send(ex, "{\"error\":\"" + e.getMessage() + "\"}");
+            } catch (Exception ignored) {}
         }
     }
 
-    private void send(HttpExchange ex, int code, String body) throws Exception {
-        byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
+    private void send(HttpExchange ex, String body) throws Exception {
         ex.getResponseHeaders().add("Content-Type", "application/json; charset=utf-8");
-        ex.sendResponseHeaders(code, bytes.length);
-        OutputStream os = ex.getResponseBody();
-        os.write(bytes);
-        os.close();
+        ex.sendResponseHeaders(200, body.getBytes().length);
+        try (OutputStream os = ex.getResponseBody()) {
+            os.write(body.getBytes());
+        }
     }
-}
+                                    }
