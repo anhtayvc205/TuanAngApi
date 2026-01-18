@@ -1,25 +1,37 @@
+package me.tuanang.api;
+
+import com.sun.net.httpserver.HttpServer;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.net.InetSocketAddress;
+import java.util.concurrent.Executors;
+
 public class TuanAngApi extends JavaPlugin {
 
-    public static TuanAngApi instance;
     public Database db;
     public PlayerCache cache;
 
     @Override
     public void onEnable() {
-        instance = this;
+        saveDefaultConfig();
 
         db = new Database(this);
-        cache = new PlayerCache(db);
+        cache = new PlayerCache();
 
-        getServer().getPluginManager().registerEvents(
-                new PlayerListener(this), this
-        );
+        Bukkit.getPluginManager().registerEvents(new PlayerListener(this), this);
 
-        startHttp();
-        startAutoSave();
+        startApi();
+
+        // autosave 10s
+        Bukkit.getScheduler().runTaskTimerAsynchronously(this,
+                () -> db.saveAll(cache),
+                200L, 200L);
+
+        getLogger().info("TuanAngApi enabled");
     }
 
-    void startHttp() {
+    private void startApi() {
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress(25673), 0);
             server.createContext("/stats", new StatsHandler(this));
@@ -28,13 +40,5 @@ public class TuanAngApi extends JavaPlugin {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    void startAutoSave() {
-        Bukkit.getScheduler().runTaskTimerAsynchronously(
-                this,
-                () -> cache.flushAll(),
-                200L, 200L // 10s
-        );
     }
 }
