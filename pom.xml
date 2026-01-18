@@ -8,7 +8,6 @@
     <groupId>me.tuanang</groupId>
     <artifactId>TuanAngApi</artifactId>
     <version>1.0.0</version>
-    <packaging>jar</packaging>
 
     <properties>
         <java.version>21</java.version>
@@ -22,7 +21,7 @@
     </repositories>
 
     <dependencies>
-        <!-- Paper API -->
+        <!-- Paper -->
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
@@ -40,6 +39,8 @@
 
     <build>
         <plugins>
+
+            <!-- COMPILER -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -49,6 +50,22 @@
                     <target>21</target>
                 </configuration>
             </plugin>
+
+            <!-- SHADE (QUAN TRỌNG NHẤT) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
 
