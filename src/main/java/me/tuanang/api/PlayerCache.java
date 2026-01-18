@@ -1,11 +1,16 @@
 package me.tuanang.api;
 
+import java.util.Collection;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class PlayerCache {
 
     public static class Data {
-        public long breakBlock, placeBlock, mobKill, death, playtime;
+        public long breakBlock;
+        public long placeBlock;
+        public long mobKill;
+        public long death;
+        public long playtime;
         public long lastSeen;
     }
 
@@ -19,8 +24,8 @@ public class PlayerCache {
         return cache.containsKey(name.toLowerCase());
     }
 
-    public void saveAll() {
-        // giữ trong RAM (hosting reset = reset data)
-        // nếu muốn: ghi file json ở đây
+    // ✅ THÊM HÀM NÀY (FIX BUILD)
+    public Collection<Data> all() {
+        return cache.values();
     }
 }
