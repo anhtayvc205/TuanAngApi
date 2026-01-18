@@ -1,44 +1,47 @@
 package me.tuanang.api;
 
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.*;
+import org.bukkit.event.block.*;
+import org.bukkit.event.entity.*;
+import org.bukkit.event.player.*;
 
 public class PlayerListener implements Listener {
 
+    private final TuanAngApi plugin;
+
+    public PlayerListener(TuanAngApi plugin) {
+        this.plugin = plugin;
+    }
+
     @EventHandler
     public void join(PlayerJoinEvent e) {
-        PlayerCache c = PlayerCache.get(e.getPlayer().getName());
-        c.online = true;
+        plugin.cache.get(e.getPlayer().getName());
     }
 
     @EventHandler
     public void quit(PlayerQuitEvent e) {
-        PlayerCache c = PlayerCache.get(e.getPlayer().getName());
-        c.online = false;
-        c.lastSeen = System.currentTimeMillis() / 1000;
+        plugin.cache.get(e.getPlayer().getName()).lastSeen = System.currentTimeMillis();
     }
 
     @EventHandler
-    public void place(BlockPlaceEvent e) {
-        PlayerCache.get(e.getPlayer().getName()).blockPlace++;
+    public void breakBlock(BlockBreakEvent e) {
+        plugin.cache.get(e.getPlayer().getName()).blockBreak++;
     }
 
     @EventHandler
-    public void breakb(BlockBreakEvent e) {
-        PlayerCache.get(e.getPlayer().getName()).blockBreak++;
+    public void placeBlock(BlockPlaceEvent e) {
+        plugin.cache.get(e.getPlayer().getName()).blockPlace++;
     }
 
     @EventHandler
     public void death(PlayerDeathEvent e) {
-        PlayerCache c = PlayerCache.get(e.getEntity().getName());
-        c.death++;
+        plugin.cache.get(e.getEntity().getName()).death++;
+    }
+
+    @EventHandler
+    public void kill(EntityDeathEvent e) {
         if (e.getEntity().getKiller() != null) {
-            PlayerCache.get(e.getEntity().getKiller().getName()).kill++;
+            plugin.cache.get(e.getEntity().getKiller().getName()).kill++;
         }
     }
 }
