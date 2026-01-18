@@ -1,3 +1,5 @@
-api:
-  port: 25672
-  key: tuanang123
+# Port mở API (chọn port trống trong hosting)
+port: 25672
+
+# Key để bot gọi
+key: tuanang123
