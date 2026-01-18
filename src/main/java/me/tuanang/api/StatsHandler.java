@@ -1,91 +1,67 @@
 package me.tuanang.api;
 
-import com.google.gson.Gson;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.Statistic;
 import org.bukkit.entity.Player;
+import org.json.JSONObject;
 
 import java.io.OutputStream;
-import java.net.URI;
-import java.util.HashMap;
-import java.util.Map;
+import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 
 public class StatsHandler implements HttpHandler {
-
-    private final TuanAngApi plugin;
-    private final Gson gson = new Gson();
-
-    public StatsHandler(TuanAngApi plugin) {
-        this.plugin = plugin;
-    }
 
     @Override
     public void handle(HttpExchange ex) {
         try {
-            URI uri = ex.getRequestURI();
-            String[] parts = uri.getPath().split("/");
-            if (parts.length < 3) {
-                send(ex, error("missing player"));
+            String path = ex.getRequestURI().getPath(); 
+            // /stats/hoang09s
+            String[] split = path.split("/");
+            if (split.length < 3) {
+                send(ex, "{\"error\":\"missing player\"}");
                 return;
             }
 
-            String playerName = parts[2];
-            String key = getQuery(uri.getQuery(), "key");
+            String name = split[2];
+            OfflinePlayer off = Bukkit.getOfflinePlayer(name);
+            UUID uuid = off.getUniqueId();
 
-            if (!plugin.getConfig().getString("key").equals(key)) {
-                send(ex, error("invalid key"));
-                return;
-            }
+            boolean online = off.isOnline();
+            Player p = online ? off.getPlayer() : null;
 
-            OfflinePlayer off = Bukkit.getOfflinePlayer(playerName);
-            Player online = off.getPlayer();
+            JSONObject json = new JSONObject();
+            json.put("player", name);
+            json.put("uuid", uuid.toString());
+            json.put("status", online ? "online" : "offline");
 
-            Map<String, Object> data = new HashMap<>();
-            data.put("player", playerName);
-            data.put("uuid", off.getUniqueId().toString());
+            json.put("kills", off.getStatistic(Statistic.PLAYER_KILLS));
+            json.put("deaths", off.getStatistic(Statistic.DEATHS));
+            json.put("playtime", off.getStatistic(Statistic.PLAY_ONE_MINUTE));
 
-            // trạng thái
-            if (online != null) {
-                data.put("online", true);
-                data.put("world", online.getWorld().getName());
-            } else {
-                data.put("online", false);
-                data.put("lastSeen", off.getLastPlayed());
-            }
+            json.put("blocks_placed", BlockListener.placed.getOrDefault(uuid, 0));
+            json.put("blocks_broken", BlockListener.broken.getOrDefault(uuid, 0));
 
-            // stats
-            data.put("kills", off.getStatistic(Statistic.PLAYER_KILLS));
-            data.put("deaths", off.getStatistic(Statistic.DEATHS));
-            data.put("blocksPlaced", off.getStatistic(Statistic.USE_ITEM));
-            data.put("blocksBroken", off.getStatistic(Statistic.MINE_BLOCK));
+            json.put("last_seen", off.getLastSeen());
+            json.put("world", online ? p.getWorld().getName() : "offline");
 
-            send(ex, gson.toJson(data));
+            send(ex, json.toString());
 
         } catch (Exception e) {
             e.printStackTrace();
+            try {
+                send(ex, "{\"error\":\"internal\"}");
+            } catch (Exception ignored) {}
         }
     }
 
-    private void send(HttpExchange ex, String json) throws Exception {
-        ex.sendResponseHeaders(200, json.getBytes().length);
+    private void send(HttpExchange ex, String data) throws Exception {
+        byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
+        ex.sendResponseHeaders(200, bytes.length);
         OutputStream os = ex.getResponseBody();
-        os.write(json.getBytes());
+        os.write(bytes);
         os.close();
-    }
-
-    private String error(String msg) {
-        return gson.toJson(Map.of("error", msg));
-    }
-
-    private String getQuery(String query, String key) {
-        if (query == null) return null;
-        for (String s : query.split("&")) {
-            String[] p = s.split("=");
-            if (p[0].equals(key)) return p.length > 1 ? p[1] : null;
-        }
-        return null;
     }
 }
