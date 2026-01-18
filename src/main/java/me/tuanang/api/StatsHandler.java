@@ -47,6 +47,7 @@ public class StatsHandler implements HttpHandler {
             data.put("player", playerName);
             data.put("uuid", off.getUniqueId().toString());
 
+            // trạng thái
             if (online != null) {
                 data.put("online", true);
                 data.put("world", online.getWorld().getName());
@@ -55,6 +56,9 @@ public class StatsHandler implements HttpHandler {
                 data.put("lastSeen", off.getLastPlayed());
             }
 
+            // stats
+            data.put("kills", off.getStatistic(Statistic.PLAYER_KILLS));
+            data.put("deaths", off.getStatistic(Statistic.DEATHS));
             data.put("blocksPlaced", off.getStatistic(Statistic.USE_ITEM));
             data.put("blocksBroken", off.getStatistic(Statistic.MINE_BLOCK));
 
