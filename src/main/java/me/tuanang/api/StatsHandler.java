@@ -1,92 +1,87 @@
 package me.tuanang.api;
 
-import com.sun.net.httpserver.HttpServer;
-import org.bukkit.*;
+import com.google.gson.Gson;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.Statistic;
 import org.bukkit.entity.Player;
-import org.bukkit.plugin.java.JavaPlugin;
-import org.json.JSONObject;
 
-import java.net.InetSocketAddress;
-import java.nio.charset.StandardCharsets;
+import java.io.OutputStream;
+import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
 
-public class StatsHandler {
+public class StatsHandler implements HttpHandler {
 
-    private final JavaPlugin plugin;
-    private final int port;
-    private final String key;
-    private final String bind;
+    private final TuanAngApi plugin;
+    private final Gson gson = new Gson();
 
-    public StatsHandler(JavaPlugin plugin, int port, String key, String bind) {
+    public StatsHandler(TuanAngApi plugin) {
         this.plugin = plugin;
-        this.port = port;
-        this.key = key;
-        this.bind = bind;
     }
 
-    public void start() {
+    @Override
+    public void handle(HttpExchange ex) {
         try {
-            HttpServer server = HttpServer.create(new InetSocketAddress(bind, port), 0);
+            URI uri = ex.getRequestURI();
+            String[] parts = uri.getPath().split("/");
+            if (parts.length < 3) {
+                send(ex, error("missing player"));
+                return;
+            }
 
-            server.createContext("/stats", exchange -> {
-                String query = exchange.getRequestURI().getQuery();
-                if (query == null || !query.contains("key=" + key)) {
-                    send(exchange, "{\"error\":\"invalid key\"}");
-                    return;
-                }
+            String playerName = parts[2];
+            String key = getQuery(uri.getQuery(), "key");
 
-                String[] path = exchange.getRequestURI().getPath().split("/");
-                if (path.length < 3) {
-                    send(exchange, "{\"error\":\"missing player\"}");
-                    return;
-                }
+            if (!plugin.getConfig().getString("key").equals(key)) {
+                send(ex, error("invalid key"));
+                return;
+            }
 
-                String name = path[2];
+            OfflinePlayer off = Bukkit.getOfflinePlayer(playerName);
+            Player online = off.getPlayer();
 
-                Bukkit.getScheduler().runTask(plugin, () -> {
-                    OfflinePlayer off = Bukkit.getOfflinePlayer(name);
-                    Player p = off.getPlayer();
+            Map<String, Object> data = new HashMap<>();
+            data.put("player", playerName);
+            data.put("uuid", off.getUniqueId().toString());
 
-                    JSONObject json = new JSONObject();
-                    json.put("player", name);
-                    json.put("uuid", off.getUniqueId().toString());
-                    json.put("online", p != null);
+            if (online != null) {
+                data.put("online", true);
+                data.put("world", online.getWorld().getName());
+            } else {
+                data.put("online", false);
+                data.put("lastSeen", off.getLastPlayed());
+            }
 
-                    // world
-                    if (p != null) {
-                        json.put("world", p.getWorld().getName());
-                    } else {
-                        json.put("world", off.getLastPlayed() == 0 ? null : off.getLocation() == null ? null : off.getLocation().getWorld().getName());
-                    }
+            data.put("blocksPlaced", off.getStatistic(Statistic.USE_ITEM));
+            data.put("blocksBroken", off.getStatistic(Statistic.MINE_BLOCK));
 
-                    // last seen (unix)
-                    long lastSeen = p != null ? 0 : off.getLastPlayed() / 1000;
-                    json.put("last_seen", lastSeen);
-
-                    json.put("playtime", off.getStatistic(Statistic.PLAY_ONE_MINUTE) / 20);
-                    json.put("deaths", off.getStatistic(Statistic.DEATHS));
-                    json.put("kills", off.getStatistic(Statistic.PLAYER_KILLS));
-
-                    json.put("blocks_placed", off.getStatistic(Statistic.USE_ITEM));
-                    json.put("blocks_broken", off.getStatistic(Statistic.MINE_BLOCK));
-
-                    send(exchange, json.toString(2));
-                });
-            });
-
-            server.start();
-            plugin.getLogger().info("API started on port " + port);
+            send(ex, gson.toJson(data));
 
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    private void send(com.sun.net.httpserver.HttpExchange ex, String body) {
-        try {
-            byte[] data = body.getBytes(StandardCharsets.UTF_8);
-            ex.sendResponseHeaders(200, data.length);
-            ex.getResponseBody().write(data);
-            ex.close();
-        } catch (Exception ignored) {}
+    private void send(HttpExchange ex, String json) throws Exception {
+        ex.sendResponseHeaders(200, json.getBytes().length);
+        OutputStream os = ex.getResponseBody();
+        os.write(json.getBytes());
+        os.close();
+    }
+
+    private String error(String msg) {
+        return gson.toJson(Map.of("error", msg));
+    }
+
+    private String getQuery(String query, String key) {
+        if (query == null) return null;
+        for (String s : query.split("&")) {
+            String[] p = s.split("=");
+            if (p[0].equals(key)) return p.length > 1 ? p[1] : null;
+        }
+        return null;
     }
 }
