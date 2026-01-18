@@ -5,7 +5,6 @@ import com.sun.net.httpserver.HttpHandler;
 import org.bukkit.Bukkit;
 import org.bukkit.Statistic;
 import org.bukkit.entity.Player;
-import org.json.JSONObject;
 
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
@@ -43,25 +42,21 @@ public class StatsHandler implements HttpHandler {
                 return;
             }
 
-            JSONObject json = new JSONObject();
-            json.put("player", p.getName());
-            json.put("uuid", p.getUniqueId().toString());
-            json.put("health", p.getHealth());
-            json.put("food", p.getFoodLevel());
+            String json =
+                    "{\n" +
+                    "  \"player\": \"" + p.getName() + "\",\n" +
+                    "  \"uuid\": \"" + p.getUniqueId() + "\",\n" +
+                    "  \"health\": " + p.getHealth() + ",\n" +
+                    "  \"food\": " + p.getFoodLevel() + ",\n" +
+                    "  \"playtime\": " + (p.getStatistic(Statistic.PLAY_ONE_MINUTE) / 20) + ",\n" +
+                    "  \"deaths\": " + p.getStatistic(Statistic.DEATHS) + ",\n" +
+                    "  \"kills\": " + p.getStatistic(Statistic.MOB_KILLS) + "\n" +
+                    "}";
 
-            json.put("playtime", p.getStatistic(Statistic.PLAY_ONE_MINUTE) / 20);
-            json.put("deaths", p.getStatistic(Statistic.DEATHS));
-            json.put("kills", p.getStatistic(Statistic.MOB_KILLS));
-            json.put("blocks_mined", p.getStatistic(Statistic.MINE_BLOCK));
-            json.put("blocks_placed", p.getStatistic(Statistic.USE_ITEM));
-
-            send(exchange, 200, json.toString(2));
+            send(exchange, 200, json);
 
         } catch (Exception e) {
             e.printStackTrace();
-            try {
-                send(exchange, 500, "{\"error\":\"server error\"}");
-            } catch (Exception ignored) {}
         }
     }
 
