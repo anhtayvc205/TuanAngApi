@@ -4,40 +4,39 @@ import com.sun.net.httpserver.HttpServer;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.net.InetSocketAddress;
-import java.util.concurrent.Executors;
+import java.util.HashMap;
+import java.util.UUID;
 
 public class TuanAngApi extends JavaPlugin {
 
-    private HttpServer httpServer;
+    public Database db;
+    public HashMap<UUID, Long> joinTime = new HashMap<>();
 
     @Override
     public void onEnable() {
+
+        db = new Database();
+        db.connect();
+
+        getServer().getPluginManager().registerEvents(
+                new PlayerListener(this), this
+        );
+
         int port = 25673;
 
         try {
-            // ⚠️ BẮT BUỘC bind 0.0.0.0 cho hosting
-            InetSocketAddress addr = new InetSocketAddress("0.0.0.0", port);
-            httpServer = HttpServer.create(addr, 0);
+            HttpServer server = HttpServer.create(
+                    new InetSocketAddress("0.0.0.0", port), 0
+            );
 
-            httpServer.createContext("/stats", new StatsHandler(this));
+            server.createContext("/stats", new StatsHandler(this));
+            server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool());
+            server.start();
 
-            // thread pool riêng (không đụng main thread MC)
-            httpServer.setExecutor(Executors.newCachedThreadPool());
-            httpServer.start();
-
-            getLogger().info("§a[TuanAngApi] API started at 0.0.0.0:" + port);
+            getLogger().info("API started on 0.0.0.0:" + port);
 
         } catch (Exception e) {
-            getLogger().severe("§c[TuanAngApi] FAILED to start API");
             e.printStackTrace();
-        }
-    }
-
-    @Override
-    public void onDisable() {
-        if (httpServer != null) {
-            httpServer.stop(0);
-            getLogger().info("§c[TuanAngApi] API stopped");
         }
     }
 }
