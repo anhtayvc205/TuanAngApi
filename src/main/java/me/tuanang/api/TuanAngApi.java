@@ -1,6 +1,9 @@
 package me.tuanang.api;
 
+import com.sun.net.httpserver.HttpServer;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.net.InetSocketAddress;
 
 public class TuanAngApi extends JavaPlugin {
 
@@ -9,11 +12,20 @@ public class TuanAngApi extends JavaPlugin {
         saveDefaultConfig();
 
         int port = getConfig().getInt("port");
-        String key = getConfig().getString("key");
         String bind = getConfig().getString("bind");
 
-        getLogger().info("API chạy port " + port);
+        try {
+            HttpServer server = HttpServer.create(
+                    new InetSocketAddress(bind, port), 0);
 
-        new StatsHandler(this, port, key, bind).start();
+            server.createContext("/stats", new StatsHandler(this));
+            server.setExecutor(null);
+            server.start();
+
+            getLogger().info("API started at " + bind + ":" + port);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
