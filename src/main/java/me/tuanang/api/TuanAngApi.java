@@ -9,34 +9,26 @@ import java.util.concurrent.Executors;
 
 public class TuanAngApi extends JavaPlugin {
 
-    public Database db;
-    public PlayerCache cache;
+    public static TuanAngApi instance;
 
     @Override
     public void onEnable() {
-        saveDefaultConfig();
+        instance = this;
 
-        db = new Database(this);
-        cache = new PlayerCache();
+        Bukkit.getPluginManager().registerEvents(new PlayerListener(), this);
 
-        Bukkit.getPluginManager().registerEvents(new PlayerListener(this), this);
+        // auto +10s playtime
+        Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
+            PlayerCache.cache.values().forEach(PlayerCache::tick);
+        }, 200L, 200L); // 10s
 
-        startApi();
-
-        // autosave 10s
-        Bukkit.getScheduler().runTaskTimerAsynchronously(this,
-                () -> db.saveAll(cache),
-                200L, 200L);
-
-        getLogger().info("TuanAngApi enabled");
-    }
-
-    private void startApi() {
+        // HTTP API
         try {
             HttpServer server = HttpServer.create(new InetSocketAddress(25673), 0);
-            server.createContext("/stats", new StatsHandler(this));
+            server.createContext("/stats", new StatsHandler());
             server.setExecutor(Executors.newCachedThreadPool());
             server.start();
+            getLogger().info("API started :25673");
         } catch (Exception e) {
             e.printStackTrace();
         }
