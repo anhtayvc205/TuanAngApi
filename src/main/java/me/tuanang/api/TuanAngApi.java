@@ -8,25 +8,23 @@ import java.net.InetSocketAddress;
 
 public class TuanAngApi extends JavaPlugin {
 
-    public static TuanAngApi instance;
-
     @Override
     public void onEnable() {
-        instance = this;
-
-        int port = 25673;
+        int port = 25673; // nhớ mở port này trong HyperCore
 
         try {
-            HttpServer server = HttpServer.create(new InetSocketAddress("0.0.0.0", port), 0);
-            server.createContext("/stats", new StatsHandler());
-            server.setExecutor(null);
+            HttpServer server = HttpServer.create(
+                    new InetSocketAddress("127.0.0.1", port), 0
+            );
+
+            server.createContext("/stats", new StatsHandler(this));
+            server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool());
             server.start();
 
             getLogger().info("API started on port " + port);
+
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-        Bukkit.getPluginManager().registerEvents(new BlockListener(), this);
     }
 }
