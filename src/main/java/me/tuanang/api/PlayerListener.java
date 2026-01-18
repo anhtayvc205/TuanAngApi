@@ -4,37 +4,49 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
-import org.bukkit.event.entity.EntityDeathEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.scheduler.BukkitRunnable;
 
 public class PlayerListener implements Listener {
 
     @EventHandler
     public void onJoin(PlayerJoinEvent e) {
-        var d = TuanAngApi.instance.cache.get(e.getPlayer().getName());
-        d.lastSeen = System.currentTimeMillis();
+        PlayerData d = PlayerCache.get(e.getPlayer().getName());
+        d.online = true;
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!d.online) {
+                    cancel();
+                    return;
+                }
+                d.playtime++;
+            }
+        }.runTaskTimerAsynchronously(TuanAngApi.getInstance(), 20, 20);
     }
 
     @EventHandler
     public void onQuit(PlayerQuitEvent e) {
-        var d = TuanAngApi.instance.cache.get(e.getPlayer().getName());
+        PlayerData d = PlayerCache.get(e.getPlayer().getName());
+        d.online = false;
         d.lastSeen = System.currentTimeMillis();
     }
 
     @EventHandler
-    public void onBreak(BlockBreakEvent e) {
-        TuanAngApi.instance.cache.get(e.getPlayer().getName()).breakBlock++;
+    public void breakBlock(BlockBreakEvent e) {
+        PlayerCache.get(e.getPlayer().getName()).blockBreak++;
     }
 
     @EventHandler
-    public void onPlace(BlockPlaceEvent e) {
-        TuanAngApi.instance.cache.get(e.getPlayer().getName()).placeBlock++;
+    public void placeBlock(BlockPlaceEvent e) {
+        PlayerCache.get(e.getPlayer().getName()).blockPlace++;
     }
 
     @EventHandler
-    public void onKill(EntityDeathEvent e) {
-        if (e.getEntity().getKiller() == null) return;
-        TuanAngApi.instance.cache.get(e.getEntity().getKiller().getName()).mobKill++;
+    public void death(PlayerDeathEvent e) {
+        PlayerCache.get(e.getEntity().getName()).death++;
     }
 }
