@@ -1,22 +1,20 @@
-@EventHandler
-public void onJoin(PlayerJoinEvent e) {
-    Player p = e.getPlayer();
-    PlayerData data = PlayerCache.get(p.getUniqueId());
+package me.tuanang.api;
 
-    if (data == null) {
-        data = new PlayerData();
-        data.uuid = p.getUniqueId();
-        data.name = p.getName();
-        PlayerCache.put(p.getUniqueId(), data);
+import org.bukkit.event.*;
+import org.bukkit.event.player.*;
+
+public class PlayerListener implements Listener {
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent e) {
+        PlayerData d = PlayerCache.get(e.getPlayer().getName());
+        d.online = true;
     }
 
-    data.lastSeen = System.currentTimeMillis();
-}
-
-@EventHandler
-public void onQuit(PlayerQuitEvent e) {
-    PlayerData data = PlayerCache.get(e.getPlayer().getUniqueId());
-    if (data != null) {
-        data.lastSeen = System.currentTimeMillis();
+    @EventHandler
+    public void onQuit(PlayerQuitEvent e) {
+        PlayerData d = PlayerCache.get(e.getPlayer().getName());
+        d.online = false;
+        d.lastSeen = System.currentTimeMillis();
     }
 }
