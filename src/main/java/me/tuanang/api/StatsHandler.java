@@ -1,9 +1,7 @@
 package me.tuanang.api;
 
 import com.sun.net.httpserver.HttpServer;
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
-import org.bukkit.Statistic;
+import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.json.JSONObject;
@@ -27,18 +25,11 @@ public class StatsHandler {
 
     public void start() {
         try {
-            HttpServer server = HttpServer.create(
-                    new InetSocketAddress(bind, port), 0
-            );
+            HttpServer server = HttpServer.create(new InetSocketAddress(bind, port), 0);
 
             server.createContext("/stats", exchange -> {
                 String query = exchange.getRequestURI().getQuery();
-                if (query == null || !query.contains("key=")) {
-                    send(exchange, "{\"error\":\"missing key\"}");
-                    return;
-                }
-
-                if (!query.contains("key=" + key)) {
+                if (query == null || !query.contains("key=" + key)) {
                     send(exchange, "{\"error\":\"invalid key\"}");
                     return;
                 }
@@ -53,36 +44,37 @@ public class StatsHandler {
 
                 Bukkit.getScheduler().runTask(plugin, () -> {
                     OfflinePlayer off = Bukkit.getOfflinePlayer(name);
-                    JSONObject json = new JSONObject();
+                    Player p = off.getPlayer();
 
+                    JSONObject json = new JSONObject();
                     json.put("player", name);
                     json.put("uuid", off.getUniqueId().toString());
+                    json.put("online", p != null);
 
-                    Player online = off.getPlayer();
-                    boolean isOnline = online != null;
-
-                    json.put("online", isOnline);
-
-                    if (isOnline) {
-                        json.put("health", online.getHealth());
-                        json.put("food", online.getFoodLevel());
-                        json.put("world", online.getWorld().getName());
+                    // world
+                    if (p != null) {
+                        json.put("world", p.getWorld().getName());
                     } else {
-                        json.put("health", null);
-                        json.put("food", null);
-                        json.put("world", null);
+                        json.put("world", off.getLastPlayed() == 0 ? null : off.getLocation() == null ? null : off.getLocation().getWorld().getName());
                     }
+
+                    // last seen (unix)
+                    long lastSeen = p != null ? 0 : off.getLastPlayed() / 1000;
+                    json.put("last_seen", lastSeen);
 
                     json.put("playtime", off.getStatistic(Statistic.PLAY_ONE_MINUTE) / 20);
                     json.put("deaths", off.getStatistic(Statistic.DEATHS));
                     json.put("kills", off.getStatistic(Statistic.PLAYER_KILLS));
+
+                    json.put("blocks_placed", off.getStatistic(Statistic.USE_ITEM));
+                    json.put("blocks_broken", off.getStatistic(Statistic.MINE_BLOCK));
 
                     send(exchange, json.toString(2));
                 });
             });
 
             server.start();
-            plugin.getLogger().info("API OK http://IP:" + port + "/stats/<player>?key=xxx");
+            plugin.getLogger().info("API started on port " + port);
 
         } catch (Exception e) {
             e.printStackTrace();
