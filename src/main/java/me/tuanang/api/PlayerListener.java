@@ -1,31 +1,22 @@
-public class PlayerData {
-    public UUID uuid;
-    public String name;
+@EventHandler
+public void onJoin(PlayerJoinEvent e) {
+    Player p = e.getPlayer();
+    PlayerData data = PlayerCache.get(p.getUniqueId());
 
-    public int breakBlock;
-    public int placeBlock;
-    public int kill;
-    public int death;
-
-    public long playtime; // seconds
-    public long lastSeen; // millis
-
-    public String formatPlaytime() {
-        long s = playtime;
-        long h = s / 3600;
-        long m = (s % 3600) / 60;
-        long sec = s % 60;
-
-        if (h > 0) return h + "h" + m + "m" + sec + "s";
-        if (m > 0) return m + "m" + sec + "s";
-        return sec + "s";
+    if (data == null) {
+        data = new PlayerData();
+        data.uuid = p.getUniqueId();
+        data.name = p.getName();
+        PlayerCache.put(p.getUniqueId(), data);
     }
 
-    public String lastSeenText() {
-        long diff = (System.currentTimeMillis() - lastSeen) / 1000;
-        if (diff < 60) return diff + " giây trước";
-        if (diff < 3600) return diff / 60 + " phút trước";
-        if (diff < 86400) return diff / 3600 + " giờ trước";
-        return diff / 86400 + " ngày trước";
+    data.lastSeen = System.currentTimeMillis();
+}
+
+@EventHandler
+public void onQuit(PlayerQuitEvent e) {
+    PlayerData data = PlayerCache.get(e.getPlayer().getUniqueId());
+    if (data != null) {
+        data.lastSeen = System.currentTimeMillis();
     }
 }
