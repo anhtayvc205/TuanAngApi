@@ -1,47 +1,31 @@
-package me.tuanang.api;
+public class PlayerData {
+    public UUID uuid;
+    public String name;
 
-import org.bukkit.event.*;
-import org.bukkit.event.block.*;
-import org.bukkit.event.entity.*;
-import org.bukkit.event.player.*;
+    public int breakBlock;
+    public int placeBlock;
+    public int kill;
+    public int death;
 
-public class PlayerListener implements Listener {
+    public long playtime; // seconds
+    public long lastSeen; // millis
 
-    private final TuanAngApi plugin;
+    public String formatPlaytime() {
+        long s = playtime;
+        long h = s / 3600;
+        long m = (s % 3600) / 60;
+        long sec = s % 60;
 
-    public PlayerListener(TuanAngApi plugin) {
-        this.plugin = plugin;
+        if (h > 0) return h + "h" + m + "m" + sec + "s";
+        if (m > 0) return m + "m" + sec + "s";
+        return sec + "s";
     }
 
-    @EventHandler
-    public void join(PlayerJoinEvent e) {
-        plugin.cache.get(e.getPlayer().getName());
-    }
-
-    @EventHandler
-    public void quit(PlayerQuitEvent e) {
-        plugin.cache.get(e.getPlayer().getName()).lastSeen = System.currentTimeMillis();
-    }
-
-    @EventHandler
-    public void breakBlock(BlockBreakEvent e) {
-        plugin.cache.get(e.getPlayer().getName()).blockBreak++;
-    }
-
-    @EventHandler
-    public void placeBlock(BlockPlaceEvent e) {
-        plugin.cache.get(e.getPlayer().getName()).blockPlace++;
-    }
-
-    @EventHandler
-    public void death(PlayerDeathEvent e) {
-        plugin.cache.get(e.getEntity().getName()).death++;
-    }
-
-    @EventHandler
-    public void kill(EntityDeathEvent e) {
-        if (e.getEntity().getKiller() != null) {
-            plugin.cache.get(e.getEntity().getKiller().getName()).kill++;
-        }
+    public String lastSeenText() {
+        long diff = (System.currentTimeMillis() - lastSeen) / 1000;
+        if (diff < 60) return diff + " giây trước";
+        if (diff < 3600) return diff / 60 + " phút trước";
+        if (diff < 86400) return diff / 3600 + " giờ trước";
+        return diff / 86400 + " ngày trước";
     }
 }
