@@ -7,6 +7,8 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
+import java.util.UUID;
+
 public class PlayerListener implements Listener {
 
     private final TuanAngApi plugin;
@@ -16,29 +18,36 @@ public class PlayerListener implements Listener {
     }
 
     @EventHandler
-    public void join(PlayerJoinEvent e) {
+    public void onJoin(PlayerJoinEvent e) {
         plugin.joinTime.put(e.getPlayer().getUniqueId(), System.currentTimeMillis());
     }
 
     @EventHandler
-    public void quit(PlayerQuitEvent e) {
-        var id = e.getPlayer().getUniqueId();
-        long joined = plugin.joinTime.getOrDefault(id, System.currentTimeMillis());
-        long play = (System.currentTimeMillis() - joined) / 1000;
+    public void onQuit(PlayerQuitEvent e) {
+        UUID uuid = e.getPlayer().getUniqueId();
 
-        PlayerData d = plugin.db.get(id);
-        d.playtime += play;
-        d.lastSeen = System.currentTimeMillis() / 1000;
-        plugin.db.save(id, d);
+        long join = plugin.joinTime.getOrDefault(uuid, System.currentTimeMillis());
+        long playtime = (System.currentTimeMillis() - join) / 1000;
+
+        plugin.db.savePlayer(
+                uuid.toString(),
+                e.getPlayer().getName(),
+                playtime,
+                0,
+                0,
+                System.currentTimeMillis()
+        );
+
+        plugin.joinTime.remove(uuid);
     }
 
     @EventHandler
-    public void place(BlockPlaceEvent e) {
-        plugin.db.get(e.getPlayer().getUniqueId()).place++;
+    public void onPlace(BlockPlaceEvent e) {
+        // sau này cộng block
     }
 
     @EventHandler
-    public void breakB(BlockBreakEvent e) {
-        plugin.db.get(e.getPlayer().getUniqueId()).breaks++;
+    public void onBreak(BlockBreakEvent e) {
+        // sau này cộng block
     }
 }
