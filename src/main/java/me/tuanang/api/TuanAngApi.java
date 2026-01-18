@@ -1,28 +1,29 @@
 package me.tuanang.api;
 
+import com.sun.net.httpserver.HttpServer;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class TuanAngApi extends JavaPlugin {
+import java.net.InetSocketAddress;
 
-    private StatsHttpServer server;
+public class TuanAngApi extends JavaPlugin {
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
 
         int port = getConfig().getInt("port");
-        String key = getConfig().getString("key");
+        String bind = getConfig().getString("bind");
 
-        server = new StatsHttpServer(port, key);
-        server.start();
+        try {
+            HttpServer server = HttpServer.create(
+                new InetSocketAddress(bind, port), 0
+            );
+            server.createContext("/stats", new StatsHandler(this));
+            server.start();
 
-        getLogger().info("TuanAngApi started on port " + port);
-    }
-
-    @Override
-    public void onDisable() {
-        if (server != null) {
-            server.stop();
+            getLogger().info("✅ API chạy tại port " + port);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }
