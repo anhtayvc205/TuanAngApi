@@ -3,7 +3,7 @@ name: Build Plugin
 on:
   push:
     branches: [ "main" ]
-  pull_request:
+  workflow_dispatch:
 
 jobs:
   build:
@@ -18,6 +18,13 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
+          cache: maven
 
       - name: Build with Maven
         run: mvn clean package
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TuanAngApi
+          path: target/*.jar
