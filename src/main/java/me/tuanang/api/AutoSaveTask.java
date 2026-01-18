@@ -1,12 +1,13 @@
-public class AutoSaveTask extends BukkitRunnable {
+package me.tuanang.api;
 
+public class AutoSaveTask implements Runnable {
     @Override
     public void run() {
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            PlayerData data = PlayerCache.get(p.getUniqueId());
-            if (data != null) {
-                data.playtime++; // chỉ online mới tăng
-                data.lastSeen = System.currentTimeMillis();
+        long now = System.currentTimeMillis();
+        for (PlayerData d : PlayerCache.all().values()) {
+            if (d.online) {
+                d.playtime += 10; // +10s
+                d.lastSeen = now;
             }
         }
     }
