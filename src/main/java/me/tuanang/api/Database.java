@@ -1,52 +1,68 @@
 package me.tuanang.api;
 
-import java.sql.*;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.Statement;
 
 public class Database {
 
-    private final Connection conn;
-    public final ConcurrentHashMap<UUID, PlayerData> cache = new ConcurrentHashMap<>();
+    private Connection connection;
 
-    public Database(String path) throws Exception {
-        conn = DriverManager.getConnection("jdbc:sqlite:" + path);
-        init();
-    }
+    public void connect() {
+        try {
+            connection = DriverManager.getConnection(
+                    "jdbc:sqlite:plugins/TuanAngApi/data.db"
+            );
 
-    private void init() throws Exception {
-        try (Statement st = conn.createStatement()) {
-            st.execute("""
-                CREATE TABLE IF NOT EXISTS stats (
-                    uuid TEXT PRIMARY KEY,
-                    playtime INTEGER,
-                    blocks_place INTEGER,
-                    blocks_break INTEGER,
-                    last_seen INTEGER
-                )
-            """);
+            try (Statement st = connection.createStatement()) {
+                st.executeUpdate(
+                        "CREATE TABLE IF NOT EXISTS player_stats (" +
+                                "uuid TEXT PRIMARY KEY," +
+                                "name TEXT," +
+                                "playtime INTEGER," +
+                                "blocks_place INTEGER," +
+                                "blocks_break INTEGER," +
+                                "last_seen INTEGER" +
+                                ")"
+                );
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
-    public PlayerData get(UUID uuid) {
-        return cache.computeIfAbsent(uuid, u -> {
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "SELECT * FROM stats WHERE uuid=?")) {
-                ps.setString(1, u.toString());
-                ResultSet rs = ps.executeQuery();
-                if (rs.next()) {
-                    return new PlayerData(
-                            rs.getLong("playtime"),
-                            rs.getInt("blocks_place"),
-                            rs.getInt("blocks_break"),
-                            rs.getLong("last_seen")
-                    );
-                }
-            } catch (Exception ignored) {}
-            return new PlayerData();
-        });
+    public void savePlayer(
+            String uuid,
+            String name,
+            long playtime,
+            int place,
+            int breakBlock,
+            long lastSeen
+    ) {
+        try {
+            PreparedStatement ps = connection.prepareStatement(
+                    "INSERT OR REPLACE INTO player_stats " +
+                            "(uuid,name,playtime,blocks_place,blocks_break,last_seen) " +
+                            "VALUES (?,?,?,?,?,?)"
+            );
+
+            ps.setString(1, uuid);
+            ps.setString(2, name);
+            ps.setLong(3, playtime);
+            ps.setInt(4, place);
+            ps.setInt(5, breakBlock);
+            ps.setLong(6, lastSeen);
+
+            ps.executeUpdate();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    public void save(UUID uuid, PlayerData d) {
-        try (PreparedStatement ps = conn.prepareStatement("""
-            INSERT OR REPLACE INTO stats VALUES (?,?,?,?,?)
+    public Connection getConnection() {
+        return connection;
+    }
+}
