@@ -1,11 +1,15 @@
-package me.tuanang.api;
-
-import java.util.concurrent.ConcurrentHashMap;
-
 public class PlayerCache {
-    public ConcurrentHashMap<String, PlayerData> data = new ConcurrentHashMap<>();
+    private static final Map<UUID, PlayerData> cache = new ConcurrentHashMap<>();
 
-    public PlayerData get(String name) {
-        return data.computeIfAbsent(name.toLowerCase(), k -> new PlayerData());
+    public static PlayerData get(UUID uuid) {
+        return cache.get(uuid);
+    }
+
+    public static void put(UUID uuid, PlayerData data) {
+        cache.put(uuid, data);
+    }
+
+    public static Collection<PlayerData> values() {
+        return cache.values();
     }
 }
