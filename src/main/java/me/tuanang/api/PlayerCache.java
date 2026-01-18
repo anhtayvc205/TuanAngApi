@@ -14,18 +14,26 @@ public class PlayerCache {
         public long lastSeen;
     }
 
-    private final ConcurrentHashMap<String, Data> cache = new ConcurrentHashMap<>();
+    // ✅ STATIC CACHE
+    private static final ConcurrentHashMap<String, Data> cache = new ConcurrentHashMap<>();
 
-    public Data get(String name) {
+    public static Data get(String name) {
         return cache.computeIfAbsent(name.toLowerCase(), k -> new Data());
     }
 
-    public boolean exists(String name) {
+    public static boolean exists(String name) {
         return cache.containsKey(name.toLowerCase());
     }
 
-    // ✅ THÊM HÀM NÀY (FIX BUILD)
-    public Collection<Data> all() {
+    // ✅ FIX LỖI all()
+    public static Collection<Data> all() {
         return cache.values();
+    }
+
+    // ✅ FIX LỖI saveAll()
+    public static void saveAll() {
+        for (Data d : cache.values()) {
+            // TODO: lưu DB / file / json nếu bạn muốn
+        }
     }
 }
