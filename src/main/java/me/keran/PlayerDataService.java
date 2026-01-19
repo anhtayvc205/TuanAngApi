@@ -56,13 +56,13 @@ public class PlayerDataService {
         d.name = p.getName();
         d.online = true;
 
-        // ===== STATS =====
-        d.mobKills = PlaceholderAPI.setPlaceholders(p, "%statistic_mob_kills%");
-        d.deaths = PlaceholderAPI.setPlaceholders(p, "%statistic_deaths%");
-        d.blockPlace = PlaceholderAPI.setPlaceholders(p, "%statistic_blocks_placed%");
+        // ===== STATS (CHUẨN SPIGOT) =====
+        d.mobKills   = PlaceholderAPI.setPlaceholders(p, "%statistic_mob_kills%");
+        d.deaths     = PlaceholderAPI.setPlaceholders(p, "%statistic_deaths%");
         d.blockBreak = PlaceholderAPI.setPlaceholders(p, "%statistic_mine_block%");
+        d.blockPlace = PlaceholderAPI.setPlaceholders(p, "%statistic_use_item%"); // FIX
 
-        // ===== PLAYTIME (CHUẨN – KHÔNG TĂNG KHI OFFLINE) =====
+        // ===== PLAYTIME =====
         long ticks = p.getStatistic(Statistic.PLAY_ONE_MINUTE);
         long seconds = ticks / 20;
 
@@ -70,12 +70,11 @@ public class PlayerDataService {
         long m = (seconds % 3600) / 60;
         long s = seconds % 60;
 
-        d.playtime = h + "h" + m + "m" + s + "s";
+        d.playtime = h + "h " + m + "m " + s + "s";
 
-        // ===== LAST SEEN =====
+        // ===== TIME =====
         d.lastSeen = System.currentTimeMillis();
 
-        // ===== FIRST JOIN (GIỮ NGUYÊN) =====
         PlayerData old = load(p);
         if (old != null && old.firstJoin > 0) {
             d.firstJoin = old.firstJoin;
@@ -111,4 +110,4 @@ public class PlayerDataService {
             return null;
         }
     }
-}
+                }
